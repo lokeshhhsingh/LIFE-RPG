@@ -1,66 +1,48 @@
-import { User } from "@/types";
-import { apiFetch } from "./client";
+import { AuthResponse, LoginResponse, LocalUser } from "@/types";
+import { apiFetch, setToken, clearToken, setStoredUser, clearStoredUser } from "./client";
 
-/**
- * MOCK MODE: returns a fake user after a delay so the rest of the app can
- * be built against a realistic async shape. Replace the bodies of these
- * three functions with real `apiFetch` calls once backend auth is live —
- * function signatures below should not need to change, so nothing that
- * calls useAuth() has to be touched.
- */
-
-const MOCK_DELAY_MS = 500;
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
-
-function mockUser(email: string): User {
-  return {
-    id: "mock-user-1",
-    email,
-    displayName: email.split("@")[0],
-    createdAt: new Date().toISOString(),
-  };
+export interface SignupResult {
+  user: LocalUser;
+  /** true if backend didn't return a token — email confirmation required */
+  requiresEmailConfirmation: boolean;
 }
 
-export async function login(email: string, password: string): Promise<User> {
-  if (USE_MOCK) {
-    await new Promise((r) => setTimeout(r, MOCK_DELAY_MS));
-    return mockUser(email);
-  }
-  return apiFetch<User>("/auth/login", {
+export async function signup(email: string, password: string): Promise<SignupResult> {
+  const res = await apiFetch<AuthResponse>("/auth/signup", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+
+  const user: LocalUser = { user_id: res.user_id, email };
+
+  if (res.access_token) {
+    setToken(res.access_token);
+    setStoredUser(user);
+  }
+
+  return { user, requiresEmailConfirmation: !res.access_token };
 }
 
-export async function signup(
-  email: string,
-  password: string,
-  displayName: string
-): Promise<User> {
-  if (USE_MOCK) {
-    await new Promise((r) => setTimeout(r, MOCK_DELAY_MS));
-    return { ...mockUser(email), displayName };
-  }
-  return apiFetch<User>("/auth/signup", {
+export async function login(email: string, password: string): Promise<LocalUser> {
+  const res = await apiFetch<LoginResponse>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password, displayName }),
+    body: JSON.stringify({ email, password }),
   });
+  const user: LocalUser = { user_id: res.user_id, email };
+  setToken(res.access_token);
+  setStoredUser(user);
+  return user;
 }
 
-export async function logout(): Promise<void> {
-  if (USE_MOCK) {
-    await new Promise((r) => setTimeout(r, 200));
-    return;
-  }
-  return apiFetch<void>("/auth/logout", { method: "POST" });
+export function logout() {
+  // Stateless tokens, no server-side logout endpoint — just discard locally.
+  clearToken();
+  clearStoredUser();
 }
 
-export async function getCurrentUser(): Promise<User | null> {
-  if (USE_MOCK) {
-    return null; // mock: nobody is logged in on fresh load
-  }
+export async function getCurrentUser(): Promise<{ user_id: string } | null> {
   try {
-    return await apiFetch<User>("/auth/me");
+    return await apiFetch<{ user_id: string }>("/me");
   } catch {
     return null;
   }

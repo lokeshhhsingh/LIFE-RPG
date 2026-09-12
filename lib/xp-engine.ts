@@ -1,65 +1,31 @@
 /**
- * Pure XP/leveling functions. No side effects, no API calls — easy to unit
- * test in isolation and safe to mirror client-side for optimistic UI while
- * the backend remains the authoritative source of truth (per the brief's
- * anti-cheat requirement, backend should recompute and validate this too).
+ * Pure XP/progress-bar math. No side effects, no API calls.
+ *
+ * IMPORTANT: Character.current_xp is progress toward the NEXT level only —
+ * it resets to 0 on level-up. It is NOT a cumulative lifetime total. Don't
+ * try to reconstruct "total XP ever earned" from this field; the backend
+ * doesn't expose that, and there's no need to — the UI only ever needs
+ * "how full is the current level's bar."
  */
 
-/** XP required to REACH a given level from level 1 (non-linear curve). */
-export function getXpForLevel(level: number): number {
-  if (level <= 1) return 0;
-  return Math.round(100 * Math.pow(level, 1.5));
-}
-
-/** Given a total XP amount, what level is the character currently at? */
-export function getLevelFromTotalXp(totalXp: number): number {
-  let level = 1;
-  while (getXpForLevel(level + 1) <= totalXp) {
-    level += 1;
-  }
-  return level;
+/**
+ * XP required to advance FROM this level to the next.
+ * Confirmed formula from backend: floor(100 * 1.5^(level - 1))
+ * Level 1 → 2 needs 100 XP, Level 2 → 3 needs 150, Level 3 → 4 needs 225, etc.
+ */
+export function getXpThresholdForLevel(level: number): number {
+  return Math.floor(100 * Math.pow(1.5, level - 1));
 }
 
 export interface XpProgress {
-  currentLevel: number;
-  xpIntoLevel: number;
-  xpRequiredForNextLevel: number;
+  current: number;
+  required: number;
   percent: number; // 0-100
 }
 
-/** Progress bar data: how far into the current level the user is. */
-export function getXpProgressToNextLevel(totalXp: number): XpProgress {
-  const currentLevel = getLevelFromTotalXp(totalXp);
-  const currentLevelFloor = getXpForLevel(currentLevel);
-  const nextLevelCeiling = getXpForLevel(currentLevel + 1);
-  const xpIntoLevel = totalXp - currentLevelFloor;
-  const xpRequiredForNextLevel = nextLevelCeiling - currentLevelFloor;
-  const percent = Math.min(
-    100,
-    Math.round((xpIntoLevel / xpRequiredForNextLevel) * 100)
-  );
-
-  return { currentLevel, xpIntoLevel, xpRequiredForNextLevel, percent };
-}
-
-/**
- * Streak logic: pass calendar-date strings (YYYY-MM-DD), not timestamps,
- * to avoid timezone/time-of-day bugs.
- */
-export function calculateStreak(
-  lastActiveDate: string | null,
-  currentStreak: number,
-  today: string
-): number {
-  if (!lastActiveDate) return 1;
-  if (lastActiveDate === today) return currentStreak; // already logged today
-
-  const last = new Date(lastActiveDate);
-  const now = new Date(today);
-  const diffDays = Math.round(
-    (now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  if (diffDays === 1) return currentStreak + 1; // consecutive day
-  return 1; // streak broken, restart
+/** Progress bar data straight from a Character object. */
+export function getXpProgress(level: number, currentXp: number): XpProgress {
+  const required = getXpThresholdForLevel(level);
+  const percent = required > 0 ? Math.min(100, Math.round((currentXp / required) * 100)) : 0;
+  return { current: currentXp, required, percent };
 }

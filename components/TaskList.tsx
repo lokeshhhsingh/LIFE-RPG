@@ -1,103 +1,53 @@
-"use client";
+import { Task } from "@/types";
 
-import { useEffect, useState } from "react";
-import { Task, TaskCategory } from "@/types";
-import { fetchTasks, createTask, completeTask, deleteTask } from "@/lib/api/tasks";
-
-/**
- * Example of the intended convention: this component owns state/logic and
- * exposes data-* attributes + plain class hooks for Teammate A to style —
- * it deliberately has zero Tailwind classes yet beyond structural ones.
- */
-export function useTasks() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchTasks()
-      .then(setTasks)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function add(title: string, category: TaskCategory) {
-    if (!title.trim()) {
-      setError("Task title can't be empty.");
-      return;
-    }
-    const optimistic: Task = {
-      id: `temp-${Date.now()}`,
-      userId: "me",
-      title,
-      category,
-      completed: false,
-      createdAt: new Date().toISOString(),
-      completedAt: null,
-      xpReward: 10,
-    };
-    setTasks((prev) => [...prev, optimistic]);
-    try {
-      const real = await createTask(title, category);
-      setTasks((prev) => prev.map((t) => (t.id === optimistic.id ? real : t)));
-    } catch (e) {
-      setTasks((prev) => prev.filter((t) => t.id !== optimistic.id));
-      setError("Couldn't save that task — try again.");
-    }
-  }
-
-  async function complete(taskId: string) {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, completed: true } : t))
-    );
-    try {
-      await completeTask(taskId);
-    } catch (e) {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, completed: false } : t))
-      );
-      setError("Couldn't complete that task — try again.");
-    }
-  }
-
-  async function remove(taskId: string) {
-    const prevTasks = tasks;
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    try {
-      await deleteTask(taskId);
-    } catch (e) {
-      setTasks(prevTasks);
-      setError("Couldn't delete that task — try again.");
-    }
-  }
-
-  return { tasks, loading, error, add, complete, remove };
+interface TaskListProps {
+  tasks: Task[];
+  loading: boolean;
+  onComplete: (taskId: number) => void;
+  onRemove: (taskId: number) => void;
 }
 
-export function TaskList() {
-  const { tasks, loading, error, complete, remove } = useTasks();
+export function TaskList({ tasks, loading, onComplete, onRemove }: TaskListProps) {
+  if (loading) return <p role="status" className="text-sm text-ink-muted">Loading quests…</p>;
 
-  if (loading) return <p role="status">Loading quests…</p>;
+  if (tasks.length === 0) {
+    return (
+      <p data-component="task-list-empty" className="text-sm text-ink-muted">
+        No quests yet — add one above to get started.
+      </p>
+    );
+  }
 
   return (
-    <div data-component="task-list">
-      {error && <p role="alert">{error}</p>}
-      <ul>
-        {tasks.map((task) => (
-          <li key={task.id} data-completed={task.completed}>
-            <span>{task.title}</span>
-            <span>{task.category}</span>
-            {!task.completed && (
-              <button onClick={() => complete(task.id)} aria-label={`Complete ${task.title}`}>
-                Complete
-              </button>
-            )}
-            <button onClick={() => remove(task.id)} aria-label={`Delete ${task.title}`}>
-              Delete
+    <ul data-component="task-list" className="space-y-2">
+      {tasks.map((task) => (
+        <li
+          key={task.id}
+          data-completed={task.completed}
+          className="flex items-center gap-3 rounded-card border border-parchment-line bg-parchment-light px-4 py-3 text-sm"
+        >
+          <span className={`flex-1 ${task.completed ? "text-ink-muted line-through" : "text-ink"}`}>
+            {task.title}
+          </span>
+          <span className="text-ink-muted">{task.attribute}</span>
+          {!task.completed && (
+            <button
+              onClick={() => onComplete(task.id)}
+              aria-label={`Complete ${task.title}`}
+              className="rounded-card bg-ink px-3 py-1 text-xs font-medium text-parchment-light hover:bg-forest"
+            >
+              Complete
             </button>
-          </li>
-        ))}
-      </ul>
-    </div>
+          )}
+          <button
+            onClick={() => onRemove(task.id)}
+            aria-label={`Delete ${task.title}`}
+            className="rounded-card border border-parchment-line px-3 py-1 text-xs text-ink-muted hover:border-rust hover:text-rust"
+          >
+            Delete
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
