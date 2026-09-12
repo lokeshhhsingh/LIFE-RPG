@@ -1,58 +1,51 @@
-import { Task, TaskCategory } from "@/types";
+import { Task, TaskUpdateResponse } from "@/types";
 import { apiFetch } from "./client";
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
-
-// In-memory mock store — resets on page refresh. Replace with real
-// endpoints; NOTE per the brief, localStorage-only persistence is a
-// disqualifying condition, so this mock must never ship as-is.
-let mockTasks: Task[] = [];
-
 export async function fetchTasks(): Promise<Task[]> {
-  if (USE_MOCK) return [...mockTasks];
   return apiFetch<Task[]>("/tasks");
 }
 
 export async function createTask(
   title: string,
-  category: TaskCategory,
-  xpReward: number = 10
+  attribute: string,
+  xpValue?: number
 ): Promise<Task> {
-  if (USE_MOCK) {
-    const task: Task = {
-      id: crypto.randomUUID(),
-      userId: "mock-user-1",
-      title,
-      category,
-      completed: false,
-      createdAt: new Date().toISOString(),
-      completedAt: null,
-      xpReward,
-    };
-    mockTasks = [...mockTasks, task];
-    return task;
-  }
   return apiFetch<Task>("/tasks", {
     method: "POST",
-    body: JSON.stringify({ title, category, xpReward }),
+    body: JSON.stringify({
+      title,
+      attribute,
+      ...(xpValue !== undefined ? { xp_value: xpValue } : {}),
+    }),
   });
 }
 
-export async function completeTask(taskId: string): Promise<Task> {
-  if (USE_MOCK) {
-    const task = mockTasks.find((t) => t.id === taskId);
-    if (!task) throw new Error("Task not found");
-    task.completed = true;
-    task.completedAt = new Date().toISOString();
-    return task;
-  }
-  return apiFetch<Task>(`/tasks/${taskId}/complete`, { method: "POST" });
+/**
+ * Marks a task complete. Check isCompletionResponse() (from @/types) on
+ * the result to know whether to trigger level-up/XP celebration UI — the
+ * API only includes character/xp_gained/currency_gained the FIRST time a
+ * given task transitions false -> true.
+ */
+export async function completeTask(taskId: number): Promise<TaskUpdateResponse> {
+  return apiFetch<TaskUpdateResponse>(`/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ completed: true }),
+  });
 }
 
-export async function deleteTask(taskId: string): Promise<void> {
-  if (USE_MOCK) {
-    mockTasks = mockTasks.filter((t) => t.id !== taskId);
-    return;
-  }
-  return apiFetch<void>(`/tasks/${taskId}`, { method: "DELETE" });
+/** For non-completion edits (e.g. renaming a task). */
+export async function updateTask(
+  taskId: number,
+  updates: Partial<Pick<Task, "title" | "attribute">>
+): Promise<TaskUpdateResponse> {
+  return apiFetch<TaskUpdateResponse>(`/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+}
+
+export async function deleteTask(
+  taskId: number
+): Promise<{ message: string; task: Task }> {
+  return apiFetch(`/tasks/${taskId}`, { method: "DELETE" });
 }

@@ -1,63 +1,109 @@
-/**
- * Shared type contract between frontend and backend.
- *
- * ASSUMPTIONS: these fields are inferred from the problem statement, not an
- * agreed spec. Confirm/adjust with your backend teammates in your first
- * sync, then this file becomes the single source of truth both sides code
- * against — do not let frontend and backend drift into separate shapes.
- */
+// Life RPG — Shared API Types
+// Source: backend's types.ts (authoritative). Do not diverge from this
+// without updating both sides — this is the contract.
 
 export interface User {
-  id: string;
-  email: string;
-  displayName: string;
-  createdAt: string; // ISO date string
+  user_id: string; // uuid
 }
-
-export type TaskCategory =
-  | "Coding"
-  | "Fitness"
-  | "Creativity"
-  | "Mindfulness"
-  | "Study"
-  | "Chores";
 
 export interface Task {
-  id: string;
-  userId: string;
+  id: number; // int8, auto-increment — NOT a string, watch for this
+  created_at: string; // ISO timestamp
+  user_id: string; // uuid
   title: string;
-  category: TaskCategory;
+  attribute: string; // freeform string, MUST match a key used in Character.attributes
+  xp_value: number;
   completed: boolean;
-  createdAt: string;
-  completedAt: string | null;
-  xpReward: number;
-}
-
-export interface AttributeStats {
-  intellect: number;
-  strength: number;
-  creativity: number;
-  discipline: number;
+  completed_at: string | null;
 }
 
 export interface Character {
-  userId: string;
+  id: string; // uuid
+  user_id: string; // uuid
   level: number;
-  totalXp: number;
-  gold: number;
-  attributes: AttributeStats;
-  currentStreak: number;
-  longestStreak: number;
-  lastActiveDate: string | null; // ISO date, date-only comparison for streaks
-  equippedItemIds: string[];
+  current_xp: number; // progress toward NEXT level only — resets to 0 on level-up, NOT cumulative
+  currency: number;
+  attributes: Record<string, number>; // e.g. { "strength": 40, "intellect": 30 }
+  streak_count: number;
+  last_completed_date: string | null; // "YYYY-MM-DD"
+  created_at: string;
+}
+
+export type ShopItemType = "badge" | "theme" | "item";
+// badge/theme = one-time unlock per user (repurchase rejected)
+// item        = stackable, can be bought multiple times (increments quantity)
+
+export interface ShopItem {
+  id: string; // uuid
+  name: string;
+  description: string | null;
+  price: number;
+  type: ShopItemType;
 }
 
 export interface InventoryItem {
-  id: string;
-  name: string;
-  description: string;
-  cost: number;
-  iconUrl: string;
-  category: "theme" | "badge" | "cosmetic";
-  owned: boolean;
+  id: string; // uuid
+  user_id: string; // uuid
+  item_id: string; // uuid, references ShopItem.id
+  quantity: number;
+  shop_items: ShopItem; // joined in automatically by GET /inventory — plural key name, singular value
+}
+
+// ---- Endpoint response shapes ----
+
+export interface AuthResponse {
+  message?: string; // only on signup
+  user_id: string;
+  access_token?: string; // ⚠️ may be undefined on signup if email confirmation is required
+}
+
+export interface LoginResponse {
+  access_token: string;
+  user_id: string;
+}
+
+export interface TaskUpdateResponseSimple {
+  task: Task;
+  leveled_up: false;
+  // character, xp_gained, currency_gained are ABSENT on this shape
+}
+
+export interface TaskUpdateResponseWithReward {
+  task: Task;
+  character: Character;
+  leveled_up: boolean;
+  xp_gained: number;
+  currency_gained: number;
+}
+
+export type TaskUpdateResponse =
+  | TaskUpdateResponseSimple
+  | TaskUpdateResponseWithReward;
+
+export function isCompletionResponse(
+  res: TaskUpdateResponse
+): res is TaskUpdateResponseWithReward {
+  return "character" in res;
+}
+
+export interface BuyItemResponse {
+  message: string;
+  item: ShopItem;
+  inventory: InventoryItem;
+  remaining_currency: number;
+}
+
+export interface ApiErrorBody {
+  error: string;
+  have?: number; // present only on "Not enough currency" errors
+  need?: number;
+}
+
+// ---- Frontend-only convenience types (not from backend) ----
+
+// Backend never returns email anywhere (not even GET /me — just user_id).
+// Capture it client-side at login/signup time if you need to display it.
+export interface LocalUser {
+  user_id: string;
+  email: string;
 }
