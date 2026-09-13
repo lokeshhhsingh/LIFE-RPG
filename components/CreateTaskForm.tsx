@@ -11,25 +11,30 @@ import { useState, FormEvent } from "react";
  * works and just adds a new key, but verify a stat bar actually renders
  * for it before relying on it.
  *
- * The `value` sent to the API is the attribute key (lowercase, must match
- * Character.attributes). The `label` is just user-facing quest framing.
+ * Note: several labels intentionally map to the SAME backend attribute
+ * (Coding + Study -> intellect, Chores + Mindfulness -> discipline). Each
+ * option still needs a UNIQUE `id` for the <select> itself — using the
+ * shared `value` as the option's value causes a real browser bug where
+ * picking the second option with a duplicate value visually snaps back
+ * to displaying the first one. `id` drives the dropdown; `value` is only
+ * looked up at submit time for what actually gets sent to the API.
  */
-const ATTRIBUTE_OPTIONS: { label: string; value: string }[] = [
-  { label: "Coding", value: "intellect" }, // CONFIRMED key
-  { label: "Study", value: "intellect" }, // CONFIRMED key
-  { label: "Fitness", value: "strength" }, // CONFIRMED key
-  { label: "Chores", value: "discipline" }, // CONFIRMED key
-  { label: "Mindfulness", value: "discipline" }, // CONFIRMED key
-  { label: "Creativity", value: "creativity" }, // GUESS — confirm with backend
+const ATTRIBUTE_OPTIONS: { id: string; label: string; value: string }[] = [
+  { id: "coding", label: "Coding", value: "intellect" }, // CONFIRMED key
+  { id: "study", label: "Study", value: "intellect" }, // CONFIRMED key
+  { id: "fitness", label: "Fitness", value: "strength" }, // CONFIRMED key
+  { id: "chores", label: "Chores", value: "discipline" }, // CONFIRMED key
+  { id: "mindfulness", label: "Mindfulness", value: "discipline" }, // CONFIRMED key
+  { id: "creativity", label: "Creativity", value: "creativity" }, // GUESS — confirm with backend
 ];
 
 interface CreateTaskFormProps {
-  onCreate: (title: string, attribute: string) => void | Promise<void>;
+  onCreate: (title: string, attribute: string) => unknown;
 }
 
 export function CreateTaskForm({ onCreate }: CreateTaskFormProps) {
   const [title, setTitle] = useState("");
-  const [attribute, setAttribute] = useState(ATTRIBUTE_OPTIONS[0].value);
+  const [optionId, setOptionId] = useState(ATTRIBUTE_OPTIONS[0].id);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,6 +46,9 @@ export function CreateTaskForm({ onCreate }: CreateTaskFormProps) {
       setValidationError("Give your quest a title.");
       return;
     }
+    const selected = ATTRIBUTE_OPTIONS.find((opt) => opt.id === optionId);
+    const attribute = selected ? selected.value : ATTRIBUTE_OPTIONS[0].value;
+
     setValidationError(null);
     setSubmitting(true);
     try {
@@ -86,13 +94,13 @@ export function CreateTaskForm({ onCreate }: CreateTaskFormProps) {
         <select
           id="task-attribute"
           name="attribute"
-          value={attribute}
-          onChange={(e) => setAttribute(e.target.value)}
+          value={optionId}
+          onChange={(e) => setOptionId(e.target.value)}
           disabled={submitting}
           className="mt-1 w-full rounded-card border border-parchment-line bg-parchment-light px-3 py-2 text-sm text-ink outline-none focus:border-ink"
         >
           {ATTRIBUTE_OPTIONS.map((opt) => (
-            <option key={opt.label} value={opt.value}>
+            <option key={opt.id} value={opt.id}>
               {opt.label}
             </option>
           ))}
