@@ -30,7 +30,6 @@ export function useTasks() {
   }, []);
 
   async function add(title: string, attribute: string, xpValue?: number) {
-    setError(null); // clear any stale error from a previous action
     const trimmed = title.trim();
     if (!trimmed) {
       setError("Task title can't be empty.");
@@ -58,7 +57,6 @@ export function useTasks() {
   }
 
   async function complete(taskId: number) {
-    setError(null); // clear any stale error from a previous action
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, completed: true } : t))
     );
@@ -81,7 +79,6 @@ export function useTasks() {
   }
 
   async function remove(taskId: number) {
-    setError(null); // clear any stale error from a previous action
     const prevTasks = tasks;
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     try {

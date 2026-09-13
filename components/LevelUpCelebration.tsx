@@ -45,11 +45,22 @@ export function LevelUpCelebration({
       aria-live="polite"
       data-component="level-up-celebration"
       data-level={data.character.level}
+      className="mt-4 flex items-center justify-between rounded-card border border-gold bg-gold-bright/40 px-4 py-3 text-sm"
     >
-      <p data-field="xp-gained">+{data.xpGained} XP</p>
-      <p data-field="currency-gained">+{data.currencyGained} gold</p>
-      <p data-field="level">Level {data.character.level}</p>
-      <button onClick={onDismiss}>Dismiss</button>
+      <div className="flex items-center gap-4">
+        <p data-field="xp-gained" className="font-medium text-ink">
+          +{data.xpGained} XP
+        </p>
+        <p data-field="currency-gained" className="font-medium text-ink">
+          +{data.currencyGained} gold
+        </p>
+        <p data-field="level" className="text-ink-muted">
+          Level {data.character.level}
+        </p>
+      </div>
+      <button onClick={onDismiss} className="text-ink-muted hover:text-ink">
+        Dismiss
+      </button>
     </div>
   );
 }

@@ -1,63 +1,96 @@
 import { Character } from "@/types";
+import { AttributeBar, AttributeColor } from "@/components/AttributeBar";
 import { getXpProgress } from "@/lib/xp-engine";
 
-interface CharacterPanelProps {
-  character: Character | null;
-  loading: boolean;
+const ATTRIBUTE_COLOR: Record<string, AttributeColor> = {
+  strength: "rust",
+  intellect: "indigo",
+  discipline: "forest",
+};
+
+function attributeColor(key: string): AttributeColor {
+  return ATTRIBUTE_COLOR[key] ?? "gold";
 }
 
-export function CharacterPanel({ character, loading }: CharacterPanelProps) {
-  if (loading) {
-    return <p role="status">Loading character…</p>;
-  }
-  if (!character) {
-    return null;
-  }
+function attributeLabel(key: string): string {
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
 
+interface CharacterPanelProps {
+  character: Character;
+}
+
+export function CharacterPanel({ character }: CharacterPanelProps) {
   const xp = getXpProgress(character.level, character.current_xp);
+  const attributeEntries = Object.entries(character.attributes);
+  // Bars are shown relative to your highest stat, since attributes have
+  // no fixed maximum — this keeps them comparative rather than arbitrary.
+  const maxAttribute = Math.max(1, ...attributeEntries.map(([, v]) => v));
 
   return (
-    <div data-component="character-panel">
-      <h2 data-field="level">Level {character.level}</h2>
-
-      <div
-        data-field="xp-bar"
-        role="progressbar"
-        aria-valuenow={xp.percent}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`${xp.current} of ${xp.required} XP to next level`}
-      >
-        <div data-fill style={{ width: `${xp.percent}%` }} />
-      </div>
-      <p data-field="xp-text">
-        {xp.current} / {xp.required} XP
-      </p>
-
-      <p data-field="streak">
-        {character.streak_count > 0
-          ? `${character.streak_count} day streak`
-          : "No streak yet — complete a quest today to start one."}
-      </p>
-
-      <div data-field="attributes">
-        {Object.entries(character.attributes).map(([name, value]) => (
-          <div key={name} data-attribute={name}>
-            <span data-attribute-name>{name}</span>
-            <div
-              role="progressbar"
-              aria-valuenow={Math.min(100, value)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`${name}: ${value}`}
-            >
-              <div data-fill style={{ width: `${Math.min(100, value)}%` }} />
-            </div>
-          </div>
-        ))}
+    <section
+      data-component="character-panel"
+      aria-label="Character overview"
+      className="rounded-card border border-parchment-line bg-parchment-light p-5"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="font-display text-2xl text-ink">Level {character.level}</p>
+        <Streak count={character.streak_count} />
       </div>
 
-      <p data-field="gold">{character.currency} gold</p>
-    </div>
+      <div className="mt-3">
+        <div className="flex items-baseline justify-between text-sm text-ink-muted">
+          <span>XP</span>
+          <span>
+            {xp.current} / {xp.required}
+          </span>
+        </div>
+        <div
+          className="mt-1 h-2 w-full overflow-hidden rounded-full bg-parchment-line"
+          role="progressbar"
+          aria-label="XP progress to next level"
+          aria-valuenow={xp.percent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div
+            className="h-full bg-gold transition-[width] duration-700 ease-out"
+            style={{ width: `${xp.percent}%` }}
+          />
+        </div>
+      </div>
+
+      {attributeEntries.length > 0 && (
+        <div className="mt-5 space-y-3">
+          {attributeEntries.map(([key, value]) => (
+            <AttributeBar
+              key={key}
+              label={attributeLabel(key)}
+              percent={(value / maxAttribute) * 100}
+              color={attributeColor(key)}
+              valueLabel={String(value)}
+            />
+          ))}
+        </div>
+      )}
+
+      <p className="mt-4 text-sm text-ink-muted">{character.currency} gold</p>
+    </section>
+  );
+}
+
+function Streak({ count }: { count: number }) {
+  if (count <= 0) {
+    return (
+      <p className="text-sm text-ink-muted">
+        No streak yet — complete a quest today to start one.
+      </p>
+    );
+  }
+  return (
+    <p className="text-sm text-ink-muted">
+      <span className="font-medium text-rust">{count}</span>{" "}
+      {count === 1 ? "day" : "days"} streak
+    </p>
   );
 }

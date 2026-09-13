@@ -57,9 +57,12 @@ export function CreateTaskForm({ onCreate }: CreateTaskFormProps) {
       noValidate
       data-component="create-task-form"
       aria-label="Add a new quest"
+      className="rounded-card border border-parchment-line bg-parchment-light p-4"
     >
       <div>
-        <label htmlFor="task-title">New quest</label>
+        <label htmlFor="task-title" className="block text-sm font-medium text-ink">
+          New quest
+        </label>
         <input
           id="task-title"
           name="title"
@@ -72,17 +75,21 @@ export function CreateTaskForm({ onCreate }: CreateTaskFormProps) {
           }}
           aria-invalid={!!validationError}
           disabled={submitting}
+          className="mt-1 w-full rounded-card border border-parchment-line bg-parchment-light px-3 py-2 text-sm text-ink outline-none focus:border-ink"
         />
       </div>
 
-      <div>
-        <label htmlFor="task-attribute">Attribute</label>
+      <div className="mt-3">
+        <label htmlFor="task-attribute" className="block text-sm font-medium text-ink">
+          Attribute
+        </label>
         <select
           id="task-attribute"
           name="attribute"
           value={attribute}
           onChange={(e) => setAttribute(e.target.value)}
           disabled={submitting}
+          className="mt-1 w-full rounded-card border border-parchment-line bg-parchment-light px-3 py-2 text-sm text-ink outline-none focus:border-ink"
         >
           {ATTRIBUTE_OPTIONS.map((opt) => (
             <option key={opt.label} value={opt.value}>
@@ -92,9 +99,17 @@ export function CreateTaskForm({ onCreate }: CreateTaskFormProps) {
         </select>
       </div>
 
-      {validationError && <p role="alert">{validationError}</p>}
+      {validationError && (
+        <p role="alert" className="mt-2 text-sm text-rust">
+          {validationError}
+        </p>
+      )}
 
-      <button type="submit" disabled={submitting}>
+      <button
+        type="submit"
+        disabled={submitting}
+        className="mt-4 rounded-card bg-ink px-4 py-2 text-sm font-medium text-parchment-light hover:bg-rust disabled:opacity-60"
+      >
         {submitting ? "Adding…" : "Add Quest"}
       </button>
     </form>
